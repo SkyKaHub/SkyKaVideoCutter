@@ -8,6 +8,7 @@ cookies_dir = "cookies"
 language = "en"
 account = "scamskyka"
 source_file_path = ""
+subs_file_path = ""
 
 [accounts.scamskyka]
 json = "videos_jsons/scamskyka.json"

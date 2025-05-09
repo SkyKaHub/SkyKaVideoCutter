@@ -1,13 +1,12 @@
-import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
 
 import toml
 
+import my_module.utils as utils
 from my_module import subtitle_processing
 from my_module.config_manager import set_language
-import my_module.utils as utils
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 config = toml.load(BASE_DIR / "config" / "config.toml")
@@ -32,10 +31,15 @@ def create_app():
 
     # === Left: scrollable ===
     left_canvas = tk.Canvas(main_frame)
-    left_scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=left_canvas.yview)
+    left_scrollbar = ttk.Scrollbar(
+        main_frame, orient="vertical", command=left_canvas.yview
+    )
     left_scrollable_frame = ttk.Frame(left_canvas)
 
-    left_scrollable_frame.bind("<Configure>", lambda e: left_canvas.configure(scrollregion=left_canvas.bbox("all")))
+    left_scrollable_frame.bind(
+        "<Configure>",
+        lambda e: left_canvas.configure(scrollregion=left_canvas.bbox("all")),
+    )
 
     left_canvas.create_window((0, 0), window=left_scrollable_frame, anchor="nw")
     left_canvas.configure(yscrollcommand=left_scrollbar.set)
@@ -60,38 +64,97 @@ def create_app():
 
     language = tk.StringVar(value=config["default"]["language"])
     language.trace_add("write", lambda *_: set_language(language.get()))
-    ttk.Label(video_frame, text="Select video language:").grid(row=1, column=0, columnspan=2, sticky="w", pady=5)
-    tk.Radiobutton(video_frame, text="English", variable=language, value="en").grid(row=2, column=1, sticky="w")
-    tk.Radiobutton(video_frame, text="Russian", variable=language, value="ru").grid(row=2, column=0, sticky="w")
+    ttk.Label(video_frame, text="Select video language:").grid(
+        row=1, column=0, columnspan=2, sticky="w", pady=5
+    )
+    tk.Radiobutton(video_frame, text="English", variable=language, value="en").grid(
+        row=2, column=1, sticky="w"
+    )
+    tk.Radiobutton(video_frame, text="Russian", variable=language, value="ru").grid(
+        row=2, column=0, sticky="w"
+    )
 
-    ttk.Button(video_frame, text="Choose video for subtitles",
-               command=lambda: utils.select_file(file_type="source", file_label=selected_file_label)).grid(row=3, column=0, columnspan=2,
-                                                                              sticky="ew", pady=5)
-    selected_file_label = ttk.Label(video_frame, text="No file selected", foreground="red")
+    ttk.Button(
+        video_frame,
+        text="Choose video for subtitles",
+        command=lambda: utils.select_file(
+            file_type="source", file_label=selected_file_label
+        ),
+    ).grid(row=3, column=0, columnspan=2, sticky="ew", pady=5)
+    selected_file_label = ttk.Label(
+        video_frame, text="No file selected", foreground="red"
+    )
     selected_file_label.grid(row=4, column=0, columnspan=2, sticky="w")
 
-
-    ttk.Label(video_frame, text="Or paste a YouTube link:").grid(row=5, column=0, columnspan=2, sticky="w", pady=5)
+    ttk.Label(video_frame, text="Or paste a YouTube link:").grid(
+        row=5, column=0, columnspan=2, sticky="w", pady=5
+    )
     url_entry = ttk.Entry(video_frame, width=50)
     url_entry.grid(row=6, column=0, columnspan=2, sticky="ew")
 
     url_button_frame = ttk.Frame(video_frame)
     url_button_frame.grid(row=7, column=0, columnspan=2, sticky="ew", pady=(5, 10))
-    ttk.Button(url_button_frame, text="Download", command=lambda: utils.download_video(url=url_entry.get().strip(), log_box=log_box, tk=tk, label=downloaded_file_label)).pack(side="left", padx=(0, 5))
-    ttk.Button(url_button_frame, text="Open source folder", command=lambda: utils.open_folder(SOURCES_DIR)).pack(side="left", padx=(0, 5))
-    downloaded_file_label = ttk.Label(url_button_frame, text="Not downloaded", foreground="red")
+    ttk.Button(
+        url_button_frame,
+        text="Download",
+        command=lambda: utils.download_video(
+            url=url_entry.get().strip(),
+            log_box=log_box,
+            tk=tk,
+            label=downloaded_file_label,
+        ),
+    ).pack(side="left", padx=(0, 5))
+    ttk.Button(
+        url_button_frame,
+        text="Open source folder",
+        command=lambda: utils.open_folder(SOURCES_DIR),
+    ).pack(side="left", padx=(0, 5))
+    downloaded_file_label = ttk.Label(
+        url_button_frame, text="Not downloaded", foreground="red"
+    )
     downloaded_file_label.pack(side="left", padx=(0, 5))
 
     # === Section: Subtitles ===
     subs_frame = ttk.LabelFrame(left_scrollable_frame, text="2. Subtitles")
     subs_frame.pack(fill="x", padx=10, pady=10)
 
-    ttk.Button(subs_frame, text="Generate Subtitles", command=lambda : subtitle_processing.transcribe_video(label=subtitle_label, log_box=log_box, tk=tk)).grid(row=0, column=0, sticky="w", pady=5)
+    ttk.Button(
+        subs_frame,
+        text="Generate Subtitles",
+        command=lambda: subtitle_processing.transcribe_video(
+            label=subtitle_label, log_box=log_box, tk=tk
+        ),
+    ).grid(row=0, column=0, sticky="w", pady=5)
     subtitle_label = ttk.Label(subs_frame, text="Status: Not started")
     subtitle_label.grid(row=0, column=1, sticky="w")
 
     # ttk.Button(subs_frame, text="Generate full video with subtitles").grid(row=1, column=0, sticky="w")
     # ttk.Button(subs_frame, text="Open subtitles folder").grid(row=1, column=1, sticky="w")
+
+    # === Section: Detect interesting moments ===
+    interesting_frame = ttk.LabelFrame(
+        left_scrollable_frame, text="3. Interesting moments"
+    )
+    interesting_frame.pack(fill="x", padx=10, pady=10)
+
+    ttk.Button(
+        interesting_frame,
+        text="Choose subs file",
+        command=lambda: utils.select_file(
+            file_type="subs", file_label=selected_subs_label
+        ),
+    ).grid(row=1, column=0, columnspan=2, sticky="ew", pady=5)
+
+    selected_subs_label = ttk.Label(
+        interesting_frame, text="No file selected", foreground="red"
+    )
+    selected_subs_label.grid(row=0, column=0, columnspan=2, sticky="w", pady=5)
+
+    ttk.Button(
+        interesting_frame,
+        text="Detect moments",
+        command=lambda: subtitle_processing.get_interests(),
+    ).grid(row=3, column=0, columnspan=2, sticky="ew", pady=5)
 
     # === Section: Clip Cutting ===
     # cut_frame = ttk.LabelFrame(left_scrollable_frame, text="3. Clip Cutting")

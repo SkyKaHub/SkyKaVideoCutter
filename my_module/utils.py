@@ -41,13 +41,18 @@ def log_message(message, log_box, tk):
     log_box.config(state="disabled")
 
 def select_file(file_type, file_label=None):
-    files_path = ""
+    files_path = []
     match file_type:
         case "source":
-            files_path = filedialog.askopenfilename(filetypes=[("All Files", "*.*")])
-            config_manager.set_source_file_path(files_path)
+            files_path = filedialog.askopenfilenames(filetypes=[("All Files", "*.*")])
+            config_manager.set_source_file_path(files_path[0])
             if file_label:
-                file_label.configure(foreground="green", text=Path(files_path).name)
+                file_label.configure(foreground="green", text=Path(files_path[0]).name)
+        case "subs":
+            files_path = filedialog.askopenfilenames(filetypes=[("SRT Files", "*.srt")])
+            config_manager.set_subs_file_path(files_path[0])
+            if file_label:
+                file_label.configure(foreground="green", text=Path(files_path[0]).name)
         case _:
             messagebox.showerror("Error", "Select type of file")
     return files_path

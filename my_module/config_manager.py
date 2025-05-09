@@ -8,6 +8,7 @@ output_dir = (BASE_DIR / _raw["paths"]["output_dir_base"]).as_posix()
 language = _raw["default"]["language"]
 account = _raw["default"]["account"]
 source_filepath = _raw["default"]["source_file_path"]
+subs_filepath = _raw["default"]["subs_file_path"]
 
 account_jsons = {
     name: {
@@ -30,8 +31,15 @@ def set_source_file_path(filepath):
     global source_filepath
     source_filepath = filepath
 
+def set_subs_file_path(filepath):
+    global subs_filepath
+    subs_filepath = filepath
+
 def get_source_file_path():
     return source_filepath
+
+def get_subs_file_path():
+    return subs_filepath
 
 def get_language():
     return language
