@@ -1,0 +1,20 @@
+[paths]
+output_dir_base = "results"
+sources_dir = "sources"
+account_jsons_dir = "videos_jsons"
+cookies_dir = "cookies"
+
+[default]
+language = "en"
+account = "scamskyka"
+source_file_path = ""
+
+[accounts.scamskyka]
+json = "videos_jsons/scamskyka.json"
+cookies = "cookies/scamskyka.txt"
+accountname = "@short.facts88"
+
+[accounts.debarbosnz]
+json = "videos_jsons/debarbosnz.json"
+cookies = "cookies/debarbosnz.txt"
+accountname = "@skyka650"
