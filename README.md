@@ -1,103 +1,109 @@
 # SkyCutter
 
-SkyCutter is a desktop GUI application for automated preparation and publication of short-form video clips, optimized for TikTok. The application enables you to:
+## Overview
 
-* Download and process source videos using custom timecodes (in dev)
-* Automatically generate subtitles via Whisper (Hugging Face)
-* Hardcode (embed) subtitles into the video (in dev)
-* Support multiple languages (English and Russian)
-* Schedule TikTok uploads according to a timetable (in dev)
-* Manage multiple TikTok accounts (in dev)
+SkyCutter is a desktop GUI application for automating the preparation and publication of short-form video content on TikTok. It enables you to download source videos, extract and convert audio, generate and embed subtitles using Whisper, trim clips according to custom timecodes, and schedule uploads across multiple TikTok accounts.
 
-## 🚀 Key Features
+## Key Features
 
-* **Video Download**: Fetch source videos using `yt-dlp`.
-* **Audio Conversion**: Extract and convert video audio to `.wav` format.
-* **Transcription**: Generate `.srt` subtitle files automatically.
-* **Subtitle Embedding**: Burn subtitles directly onto the video track.
-* **Clip Trimming**: Trim videos at user-defined start and end points.
-* **Project Management**: Import and export clip configurations in JSON.
-* **Publication Scheduling**: Automate video uploads to TikTok on a schedule.
-* **Configurable Settings**: Modify behavior via `config/config.toml`.
+* **Video Download**
+  Download source videos from YouTube and other platforms using `yt-dlp`.
+* **Audio Extraction & Conversion**
+  Extract audio tracks from videos and convert them to WAV format.
+* **Automatic Transcription**
+  Generate SRT subtitle files with Whisper (Hugging Face).
+* **Subtitle Embedding**
+  Burn subtitles directly into the video stream.
+* **Clip Trimming**
+  Trim videos based on user-defined start and end timecodes.
+* **Configuration Import/Export**
+  Save and load clip settings and timecodes in JSON format.
+* **Publication Scheduling**
+  Automate video uploads to TikTok on a configurable schedule.
+* **Multilingual Interface**
+  Support for English and Russian for both the interface and subtitle generation.
+* **Multi-Account Management**
+  Manage credentials and schedules for multiple TikTok accounts.
 
-## 📋 System Requirements
+## Requirements
 
-* **Python**: Version 3.10 or higher
-* **FFmpeg**: Must be installed and available in your system `PATH`
-* **Internet Connection**: Required for video downloads and API transcription requests
+* **Python 3.10**
+* **FFmpeg** installed and available in the system `PATH`
+* **Internet Connection** for video downloads and transcription API calls
 
-## 🔧 Python Dependencies
+## Installation
 
-Install the required Python packages with:
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/SkyKaHub/SkyKaVideoCutter.git
+   cd SkyKaVideoCutter
+   ```
+2. **Install dependencies**
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. **Verify FFmpeg installation**
+
+   ```bash
+   ffmpeg -version
+   ```
+
+## Configuration
+
+Edit the `config/config.toml` file to specify:
+
+* **Input/Output Paths**: Directories for source videos and processed clips.
+* **TikTok Credentials**: API keys or cookies for automated uploads.
+* **Subtitle Settings**: Language code (`en` or `ru`), model selection, and formatting options.
+* **Video Quality**: Resolution, frame rate, and encoding parameters.
+
+## Usage
+
+Run the application:
 
 ```bash
-pip install -r requirements.txt
+python main.py
 ```
 
-## ⚙️ Installation and Usage
+1. **Add Source Videos**: Enter URLs or select local video files.
+2. **Define Clips**: Specify start and end timecodes for each segment.
+3. **Generate & Embed Subtitles**: Transcribe and hardcode subtitles into your clips.
+4. **Export Configuration**: Save your clip list as a JSON file for future reuse.
+5. **Schedule Uploads**: Assign each clip to a date/time and TikTok account.
 
-1. **Clone the repository**:
-
-   ```bash
-   ```
-
-git clone [https://github.com/SkyKaHub/SkyKaVideoCutter.git](https://github.com/SkyKaHub/SkyKaVideoCutter.git)
-cd SkyKaVideoCutter
-
-````
-2. **Install dependencies**:
-   ```bash
-pip install -r requirements.txt
-````
-
-3. **Verify FFmpeg installation**:
-
-   ```bash
-   ```
-
-ffmpeg -version
-
-````
-4. **Configure the application**:
-   - Edit `config/config.toml` to set:
-     - Paths for input and output directories
-     - API credentials for TikTok (if required)
-     - Subtitle language and video quality preferences
-5. **Run the application**:
-   ```bash
-python main.py
-````
-
-## 🗂 Project Structure
+## Project Structure
 
 ```
 SkyKaVideoCutter/
 ├── config/
-│   └── config.toml           # Application settings (paths, API keys, etc.)
+│   └── config.toml           # Application settings
 ├── gui/
-│   └── app_ui.py             # Tkinter-based GUI components
+│   └── app_ui.py             # Tkinter-based interface
 ├── my_module/
-│   ├── utils.py              # Video/audio utilities and download logic
-│   ├── subtitle_processing.py# Transcription and subtitle generation logic
-│   └── config_manager.py     # Configuration manager
+│   ├── utils.py              # Download, trimming, and conversion logic
+│   ├── subtitle_processing.py# Transcription and SRT generation
+│   └── config_manager.py     # TOML configuration loader
 ├── main.py                   # Application entry point
-├── requirements.txt          # Python dependency list
+├── requirements.txt          # Python dependencies
 └── .gitignore
 ```
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! Please follow these steps:
+Contributions are welcome:
 
-1. Open an issue to discuss your proposed changes.
-2. Fork the repository and create a feature branch.
-3. Commit your changes and submit a pull request.
-4. Adhere to the existing coding style and include tests where applicable.
+1. Open an issue to discuss your proposal.
+2. Fork the repository and create a feature branch (`feature/...`).
+3. Commit your changes with tests (if applicable) and submit a pull request.
+4. Adhere to the existing code style and project guidelines.
 
-## 📄 License
+## License
 
-This project currently does not include a license. Please add a `LICENSE` file with your preferred license terms.
+This project is currently unlicensed. Add a `LICENSE` file to define usage terms.
 
-## ✉️ Contact
+## Contact
 
-Maintainer: [SkyKaHub](https://github.com/SkyKaHub)
+For support or inquiries, please open an issue at:
+[https://github.com/SkyKaHub/SkyKaVideoCutter/issues](https://github.com/SkyKaHub/SkyKaVideoCutter/issues)

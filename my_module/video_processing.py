@@ -135,7 +135,7 @@ def hardcode_subs(labels, log_box, tk):
         clip_subs_out.save(temp_srt_path.as_posix(), encoding="utf-8")
 
         tmp_embed_video = Path(clip_file_path.as_posix()).with_stem(
-            f"embed_clip_{index}"
+            f"embed_clip_{index + 1}"
         )
 
         cmd = [

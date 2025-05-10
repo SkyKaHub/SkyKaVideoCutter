@@ -77,70 +77,164 @@ def transcribe_video(labels, log_box, tk):
     threading.Thread(target=worker, daemon=True).start()
 
 
-def get_interests(label, timecodes_textbox, tk):
-    label.config(text="Processing", foreground="blue")
+# def get_interests(label, timecodes_textbox, tk):
+#     label.config(text="Processing", foreground="blue")
+#     if config_manager.get_language() == "ru":
+#         nlp = spacy.load("ru_core_news_sm")
+#     else:
+#         nlp = spacy.load("en_core_web_sm")
+#     subs = pysrt.open(config_manager.get_subs_file_path(), encoding="utf-8")
+#     blocks = []
+#     block_text = ""
+#     block_start = None
+#
+#     for sub in subs:
+#         if not block_text:
+#             block_start = sub.start.to_time()
+#         block_text += sub.text + " "
+#         if sub.text.endswith((".", "!", "?")):
+#             block_end = sub.end.to_time()
+#             blocks.append(
+#                 {
+#                     "text": block_text.strip(),
+#                     "start": block_start,
+#                     "end": block_end,
+#                     "duration": timedelta(
+#                         hours=block_end.hour,
+#                         minutes=block_end.minute,
+#                         seconds=block_end.second,
+#                     )
+#                     - timedelta(
+#                         hours=block_start.hour,
+#                         minutes=block_start.minute,
+#                         seconds=block_start.second,
+#                     ),
+#                 }
+#             )
+#             block_text = ""
+#     interesting_blocks = []
+#
+#     for block in blocks:
+#         doc = nlp(block["text"])
+#         sents = list(doc.sents)
+#
+#         # Rule 1: fragment must be 1 to 50 sentences long
+#         if not (1 <= len(sents) <= 100):
+#             continue
+#
+#         # Rule 2: must contain at least one content word (NOUN, VERB, PROPN)
+#         has_content_word = any(tok.pos_ in {"NOUN", "VERB", "PROPN"} for tok in doc)
+#         if not has_content_word:
+#             continue
+#
+#         # Rule 3: at least one sentence ends with “?” or “!”
+#         ends_with_emotion = any(
+#             sent.text.strip().endswith(("?", "!")) for sent in sents
+#         )
+#         if not ends_with_emotion:
+#             continue
+#
+#         interesting_blocks.append(block)
+#
+#     interesting_timecodes = []
+#     for index, interesting_block in enumerate(interesting_blocks, 1):
+#         interesting_timecodes.append(
+#             f"{interesting_block['start'].strftime('%H:%M:%S')}.000 - {interesting_block['end'].strftime('%H:%M:%S')}.000"
+#         )
+#
+#     config_manager.set_timecodes(interesting_timecodes)
+#
+#     if not interesting_timecodes:
+#         label.config(text="No timecodes", foreground="red")
+#     else:
+#         label.config(text="Done", foreground="green")
+#         timecodes_textbox.delete("1.0", tk.END)
+#         timecodes_textbox.insert("1.0", "\n".join(interesting_timecodes))
+
+
+import spacy
+import numpy as np
+import pysrt
+from datetime import timedelta
+from tkinter import messagebox
+
+def get_interests(label, timecodes_textbox, tk, threshold: float = 0.5):
+    """
+    Load subtitles, split into blocks on sentence boundaries,
+    then cluster by semantic similarity to keep one topic per segment.
+    """
+    label.config(text="Processing…", foreground="blue")
+
+    # load appropriate spaCy model with vectors
     if config_manager.get_language() == "ru":
         nlp = spacy.load("ru_core_news_sm")
     else:
         nlp = spacy.load("en_core_web_sm")
+
+    # read .srt and build text blocks
     subs = pysrt.open(config_manager.get_subs_file_path(), encoding="utf-8")
     blocks = []
-    block_text = ""
-    block_start = None
-
+    buf_text = ""
+    buf_start = None
     for sub in subs:
-        if not block_text:
-            block_start = sub.start.to_time()
-        block_text += sub.text + " "
-        if sub.text.endswith((".", "!", "?")):
-            block_end = sub.end.to_time()
-            blocks.append(
-                {
-                    "text": block_text.strip(),
-                    "start": block_start,
-                    "end": block_end,
-                    "duration": timedelta(
-                        hours=block_end.hour,
-                        minutes=block_end.minute,
-                        seconds=block_end.second,
-                    )
-                    - timedelta(
-                        hours=block_start.hour,
-                        minutes=block_start.minute,
-                        seconds=block_start.second,
-                    ),
-                }
+        if not buf_text:
+            buf_start = sub.start.to_time()
+        buf_text += sub.text + " "
+        if sub.text.rstrip().endswith((".", "!", "?")):
+            buf_end = sub.end.to_time()
+            blocks.append({
+                "text": buf_text.strip(),
+                "start": buf_start,
+                "end": buf_end,
+            })
+            buf_text = ""
+
+    if not blocks:
+        label.config(text="No subtitles found", foreground="red")
+        return
+
+    # segment into topic‐coherent clusters
+    segments = []
+    current = []
+    prev_vec = None
+    min_duration = timedelta(minutes=1)
+
+    for blk in blocks:
+        vec = nlp(blk["text"]).vector
+        if prev_vec is None:
+            current = [blk]
+        else:
+            # cosine similarity
+            sim = np.dot(prev_vec, vec) / (
+                    np.linalg.norm(prev_vec) * np.linalg.norm(vec) + 1e-8
             )
-            block_text = ""
-    interesting_blocks = []
-    for block in blocks:
-        doc = nlp(block["text"])
-        sents = list(doc.sents)
 
-        # Rule 1: fragment must be 1 to 50 sentences long
-        if not (1 <= len(sents) <= 50):
-            continue
+            start = current[0]["start"]
+            end = blk["end"]
+            dur = (
+                    timedelta(hours=end.hour, minutes=end.minute, seconds=end.second)
+                    - timedelta(hours=start.hour, minutes=start.minute, seconds=start.second)
+            )
 
-        # Rule 2: must contain at least one content word (NOUN, VERB, PROPN)
-        has_content_word = any(tok.pos_ in {"NOUN", "VERB", "PROPN"} for tok in doc)
-        if not has_content_word:
-            continue
+            if sim < threshold and dur >= min_duration:
+                segments.append(current)
+                current = [blk]
+            else:
+                current.append(blk)
+        prev_vec = vec
 
-        # Rule 3: at least one sentence ends with “?” or “!”
-        ends_with_emotion = any(
-            sent.text.strip().endswith(("?", "!")) for sent in sents
-        )
-        if not ends_with_emotion:
-            continue
+    # append last
+    if current:
+        segments.append(current)
 
-        interesting_blocks.append(block)
-
+    # build timecodes: from first start to last end in each segment
     interesting_timecodes = []
-    for index, interesting_block in enumerate(interesting_blocks, 1):
-        interesting_timecodes.append(
-            f"{interesting_block['start'].strftime('%H:%M:%S')}.000 - {interesting_block['end'].strftime('%H:%M:%S')}.000"
-        )
+    for seg in segments:
+        start = seg[0]["start"].strftime("%H:%M:%S") + ".000"
+        end   = seg[-1]["end"].strftime("%H:%M:%S") + ".000"
+        interesting_timecodes.append(f"{start} - {end}")
 
+    # save & display
     config_manager.set_timecodes(interesting_timecodes)
 
     if not interesting_timecodes:

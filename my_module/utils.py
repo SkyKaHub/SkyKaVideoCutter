@@ -10,7 +10,7 @@ from tkinter import filedialog, messagebox
 import yt_dlp
 from faster_whisper import WhisperModel
 import srt
-
+from humanfriendly.terminal import output
 
 from my_module import config_manager
 
@@ -49,12 +49,16 @@ def select_file(file_type, file_label=None, additional_labels=None):
         messagebox.showerror("Error", "Select type of file")
         return files_path
     if file_type == "source":
-        files_path = filedialog.askopenfilenames(filetypes=[("All Files", "*.*")])
+        source_dir = BASE_DIR / config["paths"]["sources_dir"]
+        os.makedirs(source_dir, exist_ok=True)
+        files_path = filedialog.askopenfilenames(filetypes=[("All Files", "*.*")], initialdir=source_dir)
         config_manager.set_source_file_path(files_path[0])
         if file_label:
             file_label.configure(foreground="green", text=Path(files_path[0]).name)
     if file_type == "subs":
-        files_path = filedialog.askopenfilenames(filetypes=[("SRT Files", "*.srt")])
+        output_dir = BASE_DIR / config["paths"]["output_dir_base"]
+        os.makedirs(output_dir, exist_ok=True)
+        files_path = filedialog.askopenfilenames(filetypes=[("SRT Files", "*.srt")], initialdir=output_dir)
         config_manager.set_subs_file_path(files_path[0])
         if file_label:
             file_label.configure(foreground="green", text=Path(files_path[0]).name)
