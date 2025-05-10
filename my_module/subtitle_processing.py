@@ -16,14 +16,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 config = toml.load(BASE_DIR / "config" / "config.toml")
 
 
-def transcribe_video(label, log_box, tk):
+def transcribe_video(labels, log_box, tk):
     os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
     video = config_manager.get_source_file_path()
     if not video:
         messagebox.showerror("Error", "Select video file")
         return
 
-    label.config(text="Status: In progress", style="Blue.TLabel")
+    labels["subtitle_label"].config(text="Status: In progress", style="Blue.TLabel")
 
     video_path = Path(video)
     base_name = slugify(video_path.stem)
@@ -56,15 +56,33 @@ def transcribe_video(label, log_box, tk):
                 "Status: Ready ✅" if output_srt.exists() else "Status: Not ready ❌"
             )
             fg_color = "green" if output_srt.exists() else "red"
-            label.after(0, lambda: label.config(text=status_text, foreground=fg_color))
+            labels["subtitle_label"].after(
+                0,
+                lambda: labels["subtitle_label"].config(
+                    text=status_text, foreground=fg_color
+                ),
+            )
+            labels["selected_subs_label"].config(
+                text=Path(output_srt).name, style="Green.TLabel"
+            )
+            config_manager.set_subs_file_path(output_srt)
         except Exception as e:
-            label.after(0, lambda: label.config(text=f"Error: {e}", foreground="red"))
+            labels["subtitle_label"].after(
+                0,
+                lambda: labels["subtitle_label"].config(
+                    text=f"Error: {e}", foreground="red"
+                ),
+            )
 
     threading.Thread(target=worker, daemon=True).start()
 
 
-def get_interests():
-    nlp = spacy.load("ru_core_news_sm")
+def get_interests(label, timecodes_textbox, tk):
+    label.config(text="Processing", foreground="blue")
+    if config_manager.get_language() == "ru":
+        nlp = spacy.load("ru_core_news_sm")
+    else:
+        nlp = spacy.load("en_core_web_sm")
     subs = pysrt.open(config_manager.get_subs_file_path(), encoding="utf-8")
     blocks = []
     block_text = ""
@@ -94,18 +112,40 @@ def get_interests():
                 }
             )
             block_text = ""
-    # Обработка текста и фильтрация
     interesting_blocks = []
     for block in blocks:
         doc = nlp(block["text"])
-        # Примитивный критерий: больше 1 предложения и ключевые слова
-        if len(list(doc.sents)) > 1 and any(
-            token.pos_ in {"NOUN", "VERB", "PROPN"} for token in doc
-        ):
-            interesting_blocks.append(block)
+        sents = list(doc.sents)
 
-    # Вывод результатов
-    for i, b in enumerate(interesting_blocks, 1):
-        print(f"[{i}] {b['start']} – {b['end']} | {b['duration']}")
-        print(b["text"])
-        print("—" * 50)
+        # Rule 1: fragment must be 1 to 50 sentences long
+        if not (1 <= len(sents) <= 50):
+            continue
+
+        # Rule 2: must contain at least one content word (NOUN, VERB, PROPN)
+        has_content_word = any(tok.pos_ in {"NOUN", "VERB", "PROPN"} for tok in doc)
+        if not has_content_word:
+            continue
+
+        # Rule 3: at least one sentence ends with “?” or “!”
+        ends_with_emotion = any(
+            sent.text.strip().endswith(("?", "!")) for sent in sents
+        )
+        if not ends_with_emotion:
+            continue
+
+        interesting_blocks.append(block)
+
+    interesting_timecodes = []
+    for index, interesting_block in enumerate(interesting_blocks, 1):
+        interesting_timecodes.append(
+            f"{interesting_block['start'].strftime('%H:%M:%S')}.000 - {interesting_block['end'].strftime('%H:%M:%S')}.000"
+        )
+
+    config_manager.set_timecodes(interesting_timecodes)
+
+    if not interesting_timecodes:
+        label.config(text="No timecodes", foreground="red")
+    else:
+        label.config(text="Done", foreground="green")
+        timecodes_textbox.delete("1.0", tk.END)
+        timecodes_textbox.insert("1.0", "\n".join(interesting_timecodes))

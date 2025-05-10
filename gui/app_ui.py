@@ -1,3 +1,4 @@
+import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
@@ -5,7 +6,7 @@ from tkinter import ttk
 import toml
 
 import my_module.utils as utils
-from my_module import subtitle_processing
+from my_module import subtitle_processing, video_processing
 from my_module.config_manager import set_language
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -101,7 +102,10 @@ def create_app():
             url=url_entry.get().strip(),
             log_box=log_box,
             tk=tk,
-            label=downloaded_file_label,
+            labels={
+                "downloaded_file_label": downloaded_file_label,
+                "selected_file_label": selected_file_label,
+            },
         ),
     ).pack(side="left", padx=(0, 5))
     ttk.Button(
@@ -122,7 +126,12 @@ def create_app():
         subs_frame,
         text="Generate Subtitles",
         command=lambda: subtitle_processing.transcribe_video(
-            label=subtitle_label, log_box=log_box, tk=tk
+            labels={
+                "subtitle_label": subtitle_label,
+                "selected_subs_label": selected_subs_label,
+            },
+            log_box=log_box,
+            tk=tk,
         ),
     ).grid(row=0, column=0, sticky="w", pady=5)
     subtitle_label = ttk.Label(subs_frame, text="Status: Not started")
@@ -150,34 +159,97 @@ def create_app():
     )
     selected_subs_label.grid(row=0, column=0, columnspan=2, sticky="w", pady=5)
 
+    interests_status_label = ttk.Label(
+        interesting_frame, text="Not started", foreground="red"
+    )
+    interests_status_label.grid(row=2, column=0, columnspan=2, sticky="w", pady=5)
+
     ttk.Button(
         interesting_frame,
         text="Detect moments",
-        command=lambda: subtitle_processing.get_interests(),
+        command=lambda: threading.Thread(
+            target=subtitle_processing.get_interests,
+            args=(interests_status_label, timecodes_textbox, tk),  # её аргументы
+            daemon=True,
+        ).start(),
     ).grid(row=3, column=0, columnspan=2, sticky="ew", pady=5)
 
     # === Section: Clip Cutting ===
-    # cut_frame = ttk.LabelFrame(left_scrollable_frame, text="3. Clip Cutting")
-    # cut_frame.pack(fill="x", padx=10, pady=10)
-    #
-    # ttk.Label(cut_frame, text="Timecodes (format: 00:01:00 - 00:01:20):").grid(row=0, column=0, sticky="w")
-    # tk.Text(cut_frame, height=5, width=40).grid(row=1, column=0, columnspan=2, sticky="ew")
-    # ttk.Button(cut_frame, text="Cut Clips").grid(row=2, column=0, sticky="w", pady=5)
+    cut_frame = ttk.LabelFrame(left_scrollable_frame, text="3. Clip Cutting")
+    cut_frame.pack(fill="x", padx=10, pady=10)
+
+    ttk.Label(cut_frame, text="Timecodes (format: 00:00:00.000 - 00:00:10.000):").grid(
+        row=0, column=0, sticky="w"
+    )
+    timecodes_textbox = tk.Text(cut_frame, height=5, width=40)
+    timecodes_textbox.grid(row=1, column=0, columnspan=2, sticky="ew")
+    clip_cutting_label = ttk.Label(cut_frame, text="Not started")
+    clip_cutting_label.grid(row=2, column=1, sticky="w", pady=5)
+    ttk.Button(
+        cut_frame,
+        text="Cut Clips",
+        command=lambda: threading.Thread(
+            target=video_processing.cut_video,
+            args=(
+                {
+                    "clip_cutting_label": clip_cutting_label,
+                    "clips_json": clips_json_label,
+                    "embedding_clips_label": embedding_clips_label,
+                    "embedding_clips_statuses_label": embedding_clips_statuses_label,
+                },
+                log_box,
+                tk,
+            ),
+            daemon=True,
+        ).start(),
+    ).grid(row=2, column=0, sticky="w", pady=5)
 
     # === Section: Subtitle Embedding ===
-    # convert_frame = ttk.LabelFrame(left_scrollable_frame, text="4. Subtitle Embedding")
-    # convert_frame.pack(fill="x", padx=10, pady=10)
-    #
-    # ttk.Button(convert_frame, text="Select video files").grid(row=0, column=0, sticky="w")
-    # ttk.Button(convert_frame, text="Select .srt file").grid(row=0, column=1, sticky="w")
-    # ttk.Button(convert_frame, text="Select JSON file").grid(row=0, column=2, sticky="w")
-    #
-    # ttk.Label(convert_frame, text="No .srt selected").grid(row=1, column=1, sticky="w")
-    # ttk.Label(convert_frame, text="No JSON selected").grid(row=1, column=2, sticky="w")
-    # ttk.Label(convert_frame, text="No files selected").grid(row=2, column=0, sticky="w")
-    # ttk.Label(convert_frame, text="No files selected").grid(row=2, column=1, sticky="w")
-    #
-    # ttk.Button(convert_frame, text="Embed Subtitles").grid(row=3, column=0, sticky="w", pady=5)
+    convert_frame = ttk.LabelFrame(left_scrollable_frame, text="4. Subtitle Embedding")
+    convert_frame.pack(fill="x", padx=10, pady=10)
+    ttk.Button(
+        convert_frame,
+        text="Select JSON file",
+        command=lambda: utils.select_file(
+            file_type="clips_json",
+            file_label=clips_json_label,
+            additional_labels={
+                "embedding_clips_label": embedding_clips_label,
+                "embedding_clips_statuses_label": embedding_clips_statuses_label,
+            },
+        ),
+    ).grid(row=0, column=0, sticky="w", pady=5)
+    clips_json_label = ttk.Label(
+        convert_frame, text="No JSON selected", style="Red.TLabel"
+    )
+    clips_json_label.grid(row=0, column=1, sticky="w", pady=5)
+
+    embedding_clips_label = ttk.Label(
+        convert_frame, text="No clips", style="Red.TLabel"
+    )
+    embedding_clips_label.grid(row=1, column=0, columnspan=2, sticky="w", pady=5)
+    embedding_clips_statuses_label = ttk.Label(
+        convert_frame, text="Not started", style="Red.TLabel"
+    )
+    embedding_clips_statuses_label.grid(
+        row=1, column=2, columnspan=2, sticky="w", pady=5
+    )
+    ttk.Button(
+        convert_frame,
+        text="Embed Subtitles",
+        command=lambda: threading.Thread(
+            target=video_processing.hardcode_subs,
+            args=(
+                {
+                    "embedding_clips_label": embedding_clips_label,
+                    "embedding_clips_statuses_label": embedding_clips_statuses_label,
+                },
+                log_box,
+                tk,
+            ),
+            daemon=True,
+        ).start(),
+    ).grid(row=2, column=0, sticky="w", pady=5)
 
     # === Section: TikTok Upload ===
     #

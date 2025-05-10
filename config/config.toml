@@ -9,6 +9,8 @@ language = "en"
 account = "scamskyka"
 source_file_path = ""
 subs_file_path = ""
+timecodes = []
+clips_json_path = ""
 
 [accounts.scamskyka]
 json = "videos_jsons/scamskyka.json"

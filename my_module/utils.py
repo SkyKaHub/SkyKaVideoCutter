@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import threading
@@ -15,6 +16,7 @@ from my_module import config_manager
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 config = toml.load(BASE_DIR / "config" / "config.toml")
+
 
 class YTDLPLogger:
     def __init__(self, log_box, tk):
@@ -36,32 +38,56 @@ class YTDLPLogger:
 
 def log_message(message, log_box, tk):
     log_box.config(state="normal")
-    log_box.insert(tk.END, message + '\n')
+    log_box.insert(tk.END, message + "\n")
     log_box.see(tk.END)
     log_box.config(state="disabled")
 
-def select_file(file_type, file_label=None):
+
+def select_file(file_type, file_label=None, additional_labels=None):
     files_path = []
-    match file_type:
-        case "source":
-            files_path = filedialog.askopenfilenames(filetypes=[("All Files", "*.*")])
-            config_manager.set_source_file_path(files_path[0])
-            if file_label:
-                file_label.configure(foreground="green", text=Path(files_path[0]).name)
-        case "subs":
-            files_path = filedialog.askopenfilenames(filetypes=[("SRT Files", "*.srt")])
-            config_manager.set_subs_file_path(files_path[0])
-            if file_label:
-                file_label.configure(foreground="green", text=Path(files_path[0]).name)
-        case _:
-            messagebox.showerror("Error", "Select type of file")
+    if not file_type:
+        messagebox.showerror("Error", "Select type of file")
+        return files_path
+    if file_type == "source":
+        files_path = filedialog.askopenfilenames(filetypes=[("All Files", "*.*")])
+        config_manager.set_source_file_path(files_path[0])
+        if file_label:
+            file_label.configure(foreground="green", text=Path(files_path[0]).name)
+    if file_type == "subs":
+        files_path = filedialog.askopenfilenames(filetypes=[("SRT Files", "*.srt")])
+        config_manager.set_subs_file_path(files_path[0])
+        if file_label:
+            file_label.configure(foreground="green", text=Path(files_path[0]).name)
+    if file_type == "clips_json":
+        files_path = filedialog.askopenfilenames(filetypes=[("JSON Files", "*.json")])
+        config_manager.set_clips_json_path(files_path[0])
+        with open(files_path[0], "r", encoding="utf-8") as f:
+            clip_times = json.load(f)
+            f.close()
+
+        clips = []
+        clips_statuses = []
+        for clip_info in clip_times:
+            clips.append(clip_info["filename"])
+            clips_statuses.append("Not started")
+        additional_labels["embedding_clips_label"].config(
+            text="\n".join([Path(v).name for v in clips])
+        )
+        additional_labels["embedding_clips_statuses_label"].config(
+            text="\n".join([v for v in clips_statuses])
+        )
+        if file_label:
+            file_label.configure(foreground="green", text=Path(files_path[0]).name)
+
     return files_path
+
 
 def open_folder(path):
     os.makedirs(path, exist_ok=True)
     os.startfile(path)
 
-def download_video(url, log_box, tk, label=None):
+
+def download_video(url, log_box, tk, labels=None):
     if not url:
         messagebox.showerror("Error", "No link!")
         return
@@ -69,52 +95,70 @@ def download_video(url, log_box, tk, label=None):
     os.makedirs(BASE_DIR / config["paths"]["sources_dir"], exist_ok=True)
 
     ydl_opts = {
-        'format': 'bestvideo[height<=720]+bestaudio/best[height<=720]',
-        'outtmpl': BASE_DIR / config["paths"]["sources_dir"] + '/%(title)s.%(ext)s',
-        'noplaylist': True,
-        'logger': YTDLPLogger(log_box, tk)
+        "format": "bestvideo[height<=720]+bestaudio/best[height<=720]",
+        "outtmpl": Path(BASE_DIR / config["paths"]["sources_dir"]).as_posix()
+        + "/%(title)s.%(ext)s",
+        "noplaylist": True,
+        "logger": YTDLPLogger(log_box, tk),
     }
 
     threading.Thread(
-        target=download_and_mark,
-        args=(url, ydl_opts, label),
-        daemon=True
+        target=download_and_mark, args=(url, ydl_opts, labels), daemon=True
     ).start()
 
-def download_and_mark(url, ydl_opts, label):
+
+def download_and_mark(url, ydl_opts, labels):
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.extract_info(url, download=True)
+            info = ydl.extract_info(url, download=True)
 
-        if label:
-            label.after(0, lambda: label.configure(foreground="green", text="Downloaded"))
+        output_path = info.get("filepath")
+        if not output_path:
+            rd = info.get("requested_downloads") or []
+            if rd:
+                output_path = rd[0].get("filepath")
+        output_path = Path(output_path)
+        config_manager.set_source_file_path(output_path.as_posix())
+        labels["downloaded_file_label"].config(text="Ready", style="Green.TLabel")
+        labels["selected_file_label"].config(
+            text=output_path.name, style="Green.TLabel"
+        )
     except Exception as e:
+        err_text = str(e)
+        messagebox.showerror("Ошибка", str(err_text))
 
-        if label:
-            label.after(0, lambda: label.configure(foreground="red", text=f"Error: {e}"))
-
-        label.after(0, lambda: messagebox.showerror("Ошибка", str(e)))
 
 def make_wav_from_video(input_video_path, output_audio_path, log_box, tk):
     cmd = [
         "ffmpeg",
-        "-i", input_video_path,  # входной файл
-        "-ar", "16000",  # частота дискретизации 16 кГц
-        "-ac", "1",  # моно
-        "-b:a", "32k",  # битрейт 32 кбит/с
-        output_audio_path  # выходной файл
+        "-i",
+        input_video_path,
+        "-ar",
+        "16000",
+        "-ac",
+        "1",
+        "-b:a",
+        "32k",
+        output_audio_path,
     ]
 
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='utf-8')
+    process = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding="utf-8"
+    )
     for output_line in process.stdout:
         log_message(message=output_line.strip(), log_box=log_box, tk=tk)
     process.wait()
     return output_audio_path
 
+
 def make_srt_file_from_audio(input_file_path, output_file_path, log_box, tk):
     model = WhisperModel("base", device="cpu", compute_type="int8")
-    segments, info = model.transcribe(audio=input_file_path, language=config_manager.get_language(), beam_size=5,
-                                      word_timestamps=False)
+    segments, info = model.transcribe(
+        audio=input_file_path,
+        language=config_manager.get_language(),
+        beam_size=5,
+        word_timestamps=False,
+    )
     subtitles = []
     for i, segment in enumerate(segments):
         start = timedelta(seconds=segment.start)
